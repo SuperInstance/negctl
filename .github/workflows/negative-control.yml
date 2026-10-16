@@ -1,0 +1,40 @@
+name: negative control
+# A conformance suite that cannot fail is not evidence.
+# This workflow sabotages a port, REQUIRES the suite to fail, restores it, and
+# requires it to pass again. Nine green suites in this project could not fail
+# before this existed.
+on:
+  schedule: [{ cron: "41 5 * * *" }]
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '**/run.mjs'
+      - '**/wrappers/**'
+      - '**/cases.json'
+jobs:
+  control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '9.0.x' }
+      - name: clone the ports and suites as siblings
+        run: |
+          git clone --depth 1 https://github.com/SuperInstance/gitpp-doctor          ../gitpp-doctor
+          git clone --depth 1 https://github.com/SuperInstance/gitpp-js              ../gitpp-js
+          git clone --depth 1 https://github.com/SuperInstance/gitpp-cs             ../gitpp-cs
+          git clone --depth 1 https://github.com/SuperInstance/gitpp-pl             ../gitpp-pl
+          git clone --depth 1 https://github.com/SuperInstance/gitpp-c              ../gitpp-c
+          git clone --depth 1 https://github.com/SuperInstance/gitpp-fold-conformance ../gitpp-fold-conformance
+      - name: build the C# wrapper
+        working-directory: ../gitpp-fold-conformance
+        run: dotnet build wrappers/CsDerive
+      - name: the control must pass, or the suite is untrustworthy
+        run: |
+          cd ../negctl
+          NEGCTL_ROOT=.. node negctl.mjs
