@@ -62,8 +62,30 @@ jobs:
           make clean
           make
           test -x ./gitpp
-          echo "GITPP_C_BIN=$GITHUB_WORKSPACE/gitpp-c/gitpp" >> $GITHUB_ENV
+          # The ABSOLUTE path of the binary we just built.
+          #
+          # It used to be $GITHUB_WORKSPACE/gitpp-c/gitpp, which is wrong:
+          # the clone step runs `git clone ... ../gitpp-c` with the working
+          # directory at $GITHUB_WORKSPACE, so the port lands at
+          # $GITHUB_WORKSPACE/../gitpp-c -- ONE LEVEL UP.
+          #
+          # The failure was invisible because the ASSERTION used a relative
+          # path (`test -x ./gitpp`, which passed) while the ENV VAR used an
+          # absolute one (which pointed at nothing). A relative assertion and
+          # an absolute variable can disagree, and they did.
+          #
+          # The baseline then reported
+          #     FAIL d01-empty  [participants missing: c]
+          # on all 29 cases -- which is negctl working correctly, and the
+          # only reason it was legible is the diagnosability fix that
+          # prints the baseline's own output when the baseline fails.
+          echo "GITPP_C_BIN=$(cd ../gitpp-c && pwd)/gitpp" >> $GITHUB_ENV
       - name: every participant must be present and runnable
+        # This step is also the check on GITPP_C_BIN: if the variable
+        # points at a path that does not exist, the C participant silently
+        # does not participate and every case reports
+        # "participants missing: c". Assert the variable resolves to an
+        # executable, not just that a file exists somewhere relative.
         # A participant that cannot run must be a FAILURE, not a silently
         # smaller set -- a run over four ports reports the same pass count
         # as a run over five.
@@ -72,6 +94,8 @@ jobs:
           test -f ../gitpp-js/src/gitpp.js
           test -f ../gitpp-pl/lib/Gitpp.pm
           test -f ../gitpp-c/gitpp
+          test -x "$GITPP_C_BIN" || { echo "  GITPP_C_BIN does not resolve to an executable: $GITPP_C_BIN"; exit 1; }
+          echo "  GITPP_C_BIN = $GITPP_C_BIN"
           test -f ../gitpp-fold-conformance/wrappers/CsDerive/bin/Debug/net9.0/CsDerive.dll
           echo "all five participants are present" 
       - name: the control must pass, or the suite is untrustworthy
