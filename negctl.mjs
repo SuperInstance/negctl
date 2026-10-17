@@ -87,9 +87,27 @@ export function runNegativeControl({ verbose = true } = {}) {
   if (!existsSync(dir)) return { ok: false, reason: `suite not found: ${dir}` };
 
   const baseline = runSuite(dir);
-  if (!baseline.ok) return { ok: false, reason: "baseline suite does not pass; fix that first" };
+  // The baseline output is printed BEFORE the early return. It used to be
+  // printed after it, which meant the ONE case where the baseline is
+  // broken -- the case where you most need to see what it printed --
+  // was the case that printed nothing.
+  //
+  //   NEGATIVE CONTROL FAILED -- the suite cannot be trusted to pass
+  //   reason: baseline suite does not pass; fix that first
+  //
+  // and not one line of the suite's own output. "Fix that first" is
+  // useless advice without the suite's output.
   const baselineFails = countFail(baseline.out);
-  if (verbose) console.log(`  baseline: ${tail(baseline.out)}`);
+  if (verbose) {
+    console.log(`  baseline: ${tail(baseline.out)}`);
+    if (!baseline.ok) {
+      console.log("  the baseline suite EXITED NON-ZERO. Its output follows:");
+      for (const line of baseline.out.trim().split("\n").filter(l => l.trim())) {
+        console.log(`    ${line}`);
+      }
+    }
+  }
+  if (!baseline.ok) return { ok: false, reason: "baseline suite does not pass; fix that first" };
 
   const results = [];
   for (const sab of SABOTAGES) {
