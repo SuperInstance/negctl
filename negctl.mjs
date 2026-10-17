@@ -57,6 +57,46 @@ const SABOTAGES = [
     why: "§5.4/§5.5 — cycles and missing-parent records must be reported",
     edit: null,
   },
+  {
+    // DEFECT CLASS 10: the comparison itself, not the port.
+    //
+    // This sabotage targets run.mjs's comparator rather than any port. It is
+    // the shape of the worst bug in this series: `cmp` was a ONE-ARGUMENT
+    // function, so for any case whose expect omits `setters` it returned
+    // strip(a) -- a truthy string that never inspected b. 25 of 29 cases
+    // compared against nothing and the suite reported 29/29 for weeks.
+    //
+    // negctl's own contract is that a suite must fail when a port is
+    // sabotaged. This case asks the harder question: does it fail when the
+    // COMPARISON is sabotaged? A suite that survives this is reporting an
+    // absence of complaints, not a result.
+    id: "harness-comparison-blinded",
+    port: "js",
+    file: "run.mjs",
+    what: "replace the two-arg comparator with the original one-arg form",
+    why: "a comparison that cannot fail is not a comparison (run.mjs, 25/29 cases)",
+    edit: (s) => s.replace(
+      "const cmp = expectsSetters ? (a, b) => a === b : (a, b) => strip(a) === strip(b);",
+      "const cmp = expectsSetters ? (a, b) => a === b : strip;"),
+  },
+  {
+    // DEFECT CLASS 11: a participant that silently stops participating.
+    //
+    // A missing or unloadable participant must make the suite FAIL loudly.
+    // If it merely reduces the participant count, the run still reports a
+    // confident total, and the number means something different from what
+    // it said yesterday. Compare.py counted an absent reader as agreement
+    // and reported 13/13 with one of three readers deleted.
+    id: "participant-silently-absent",
+    port: "js",
+    file: "wrappers/JsDerive.mjs",
+    what: "make one port error on every case, so the runner must FAIL rather than quietly shrink the denominator",
+    why: "an absent participant must be a FAIL, not a smaller denominator -- this is how 'five ports agree' became unverifiable when gitpp-doctor was 404",
+    // A wrapper that always exits non-zero. This is the real failure mode:
+    // the port stops participating, and a runner that filters erroring
+    // participants reports a confident total over a smaller set.
+    edit: () => "// SABOTAGE: participant-silently-absent\nprocess.exit(1);\n",
+  },
 ];
 
 const SUITE = process.env.NEGCTL_SUITE || "gitpp-fold-conformance";
