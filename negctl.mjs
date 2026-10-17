@@ -124,8 +124,19 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   console.log(`negative control against ${SUITE}`);
   const r = runNegativeControl();
   if (r.ok) { console.log("\nall sabotages detected; suite restored"); process.exit(0); }
+
+  // A harness that cannot report its OWN failure is the same defect as one
+  // that cannot report a suite's. This path threw
+  // `TypeError: r.results is not iterable` whenever runNegativeControl
+  // returned early (suite missing, baseline failing), replacing the real
+  // reason -- "baseline suite does not pass" -- with a stack trace.
   console.log("\nNEGATIVE CONTROL FAILED — the suite cannot be trusted to pass");
-  for (const x of r.results) if (x.detected === false) console.log(`  MISSED: ${x.id}`);
-  if (!r.restored) console.log("  AND the suite did not return to baseline after restore");
+  if (r.reason) console.log(`  reason: ${r.reason}`);
+  for (const x of r.results || []) {
+    if (x.detected === false) console.log(`  MISSED: ${x.id}`);
+    if (x.error) console.log(`  ERROR:  ${x.id} — ${x.error}`);
+    if (x.skipped) console.log(`  SKIPPED: ${x.id} — ${x.skipped}`);
+  }
+  if (r.restored === false) console.log("  AND the suite did not return to baseline after restore");
   process.exit(1);
 }
