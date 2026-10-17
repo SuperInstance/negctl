@@ -25,12 +25,17 @@ jobs:
         with: { dotnet-version: '9.0.x' }
       - name: clone the ports and suites as siblings
         run: |
-          git clone --depth 1 https://github.com/SuperInstance/gitpp-doctor          ../gitpp-doctor
-          git clone --depth 1 https://github.com/SuperInstance/gitpp-js              ../gitpp-js
-          git clone --depth 1 https://github.com/SuperInstance/gitpp-cs             ../gitpp-cs
-          git clone --depth 1 https://github.com/SuperInstance/gitpp-pl             ../gitpp-pl
-          git clone --depth 1 https://github.com/SuperInstance/gitpp-c              ../gitpp-c
-          git clone --depth 1 https://github.com/SuperInstance/gitpp-fold-conformance ../gitpp-fold-conformance
+          git clone --depth 1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/SuperInstance/git.pp-doctor          ../gitpp-doctor
+          git clone --depth 1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/SuperInstance/gitpp-js              ../gitpp-js
+          git clone --depth 1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/SuperInstance/gitpp-cs             ../gitpp-cs
+          git clone --depth 1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/SuperInstance/gitpp-pl             ../gitpp-pl
+          git clone --depth 1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/SuperInstance/gitpp-c              ../gitpp-c
+          git clone --depth 1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/SuperInstance/gitpp-fold-conformance ../gitpp-fold-conformance
+          # main predates the comparator fix. A control run against main
+          # would test the old harness -- the one whose comparison cannot
+          # fail -- so it would verify nothing.
+          git -C ../gitpp-fold-conformance fetch --depth 1 origin fix/second-blind-spot
+          git -C ../gitpp-fold-conformance checkout FETCH_HEAD
       - name: build the C# wrapper
         working-directory: ../gitpp-fold-conformance
         run: dotnet build wrappers/CsDerive
