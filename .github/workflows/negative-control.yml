@@ -41,6 +41,39 @@ jobs:
       - name: build the C# wrapper
         working-directory: ../gitpp-fold-conformance
         run: dotnet build wrappers/CsDerive
+      - name: build the C port from source
+        # The C participant was CLONED but never BUILT, and GITPP_C_BIN was
+        # never set -- so the wrapper fell back to /tmp/gitpp-c-derive, which
+        # does not exist on a fresh runner. The C port therefore errored on
+        # every case, and the baseline never passed:
+        #
+        #   NEGATIVE CONTROL FAILED -- the suite cannot be trusted to pass
+        #   reason: baseline suite does not pass; fix that first
+        #
+        # That is negctl WORKING -- it refused to certify a suite whose
+        # baseline was broken. But the baseline was broken for a boring
+        # reason, and a control that can never start proves nothing.
+        #
+        # BUILD FROM SOURCE, do not trust the committed binary. The repo
+        # ships a prebuilt `gitpp`, and a stale committed binary would test
+        # the wrong build -- the same trap CDerive.sh documents.
+        working-directory: ../gitpp-c
+        run: |
+          make clean
+          make
+          test -x ./gitpp
+          echo "GITPP_C_BIN=$GITHUB_WORKSPACE/gitpp-c/gitpp" >> $GITHUB_ENV
+      - name: every participant must be present and runnable
+        # A participant that cannot run must be a FAILURE, not a silently
+        # smaller set -- a run over four ports reports the same pass count
+        # as a run over five.
+        run: |
+          test -f ../gitpp-doctor/gitpp_doctor.py
+          test -f ../gitpp-js/src/gitpp.js
+          test -f ../gitpp-pl/lib/Gitpp.pm
+          test -f ../gitpp-c/gitpp
+          test -f ../gitpp-fold-conformance/wrappers/CsDerive/bin/Debug/net9.0/CsDerive.dll
+          echo "all five participants are present" 
       - name: the control must pass, or the suite is untrustworthy
         run: |
           cd ../negctl
